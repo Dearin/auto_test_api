@@ -48,7 +48,6 @@ six==1.14.0
 smmap==4.0.0
 TestLink-API-Python-client==0.8.1
 txaio==20.4.1
-urllib3==1.25.1
 loguru==0.5.3
 jsonpath==0.82
 channels==3.0.3
