@@ -29,7 +29,7 @@ class ApiCreatedtasks(models.Model):
         db_table = 'api_createdtasks'
 
     def __str__(self):
-        return self.apicreatedtasks_text
+        return self.task_name
 
 
 class ApiCases(models.Model):
@@ -43,7 +43,7 @@ class ApiCases(models.Model):
         db_table = 'api_cases'
 
     def __str__(self):
-        return self.apicases_text
+        return self.case_en_name
 
     # 获取对应模块用例集合
     def getCasesByModule(self,module_name):

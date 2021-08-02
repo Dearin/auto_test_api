@@ -23,6 +23,7 @@ urlpatterns = [
     path('tools/', include('apps.remote_login.urls')),
     path('testcase/', include('apps.testlinkManage.urls')),
     path('packagesmanage/', include('apps.packagesmanage.urls')),
-    path('initialData/', include('apps.initialData.urls'))
+    path('initialData/', include('apps.initialData.urls')),
+    path('autotest/', include('apps.autotest_manage.urls'))
 
 ]

@@ -32,30 +32,30 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 ##
-CORS_ALLOW_CREDENTIALS = True
-CORS_ORIGIN_WHITELIST = ('localhost:3000')
+# CORS_ALLOW_CREDENTIALS = True
+# CORS_ORIGIN_WHITELIST = ('localhost:3000')
 
-CORS_ALLOW_METHODS = {
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
-    'VIEW'
-}
-
-CORS_ALLOW_HEADERS = {
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'dnt',
-    'content-type',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with'
-}
+# CORS_ALLOW_METHODS = {
+#     'DELETE',
+#     'GET',
+#     'OPTIONS',
+#     'PATCH',
+#     'POST',
+#     'PUT',
+#     'VIEW'
+# }
+#
+# CORS_ALLOW_HEADERS = {
+#     'accept',
+#     'accept-encoding',
+#     'authorization',
+#     'dnt',
+#     'content-type',
+#     'origin',
+#     'user-agent',
+#     'x-csrftoken',
+#     'x-requested-with'
+# }
 # Application definition
 
 INSTALLED_APPS = [
@@ -72,7 +72,8 @@ INSTALLED_APPS = [
     'remote_login',
     'testlinkManage',
     'packagesmanage',
-    'initialData'
+    'initialData',
+    'autotest_manage'
 ]
 
 MIDDLEWARE = [
