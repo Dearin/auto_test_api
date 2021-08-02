@@ -31,7 +31,31 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
+##
+CORS_ALLOW_CREDENTIALS = True
+CORS_ORIGIN_WHITELIST = ('localhost:3000')
 
+CORS_ALLOW_METHODS = {
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+    'VIEW'
+}
+
+CORS_ALLOW_HEADERS = {
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'dnt',
+    'content-type',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with'
+}
 # Application definition
 
 INSTALLED_APPS = [
@@ -109,7 +133,6 @@ DATABASES = {
     }
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/2.0/ref/settings/#auth-password-validators
 
@@ -128,7 +151,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/2.0/topics/i18n/
 
@@ -142,13 +164,12 @@ USE_L10N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.0/howto/static-files/
 
 STATIC_URL = '/static/'
 
-STATICFILES_DIRS=[
+STATICFILES_DIRS = [
     os.path.join(BASE_DIR, '/root/coverage/sample/report')
 ]
 

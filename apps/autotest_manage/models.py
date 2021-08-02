@@ -28,6 +28,10 @@ class ApiCreatedtasks(models.Model):
         managed = False
         db_table = 'api_createdtasks'
 
+    def __str__(self):
+        return self.apicreatedtasks_text
+
+
 class ApiCases(models.Model):
     version = models.CharField(max_length=10, blank=True, null=True)
     module = models.CharField(max_length=50)
@@ -37,6 +41,13 @@ class ApiCases(models.Model):
     class Meta:
         managed = False
         db_table = 'api_cases'
+
+    def __str__(self):
+        return self.apicases_text
+
+    # 获取对应模块用例集合
+    def getCasesByModule(self,module_name):
+        return self.module == module_name
 
 
 
