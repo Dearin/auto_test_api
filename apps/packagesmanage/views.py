@@ -23,6 +23,7 @@ ssh_64 = RemoteModule(
     passwd=RPM_SERVER_CENTOS64['password']
 )
 
+
 rpm_save_server_ssh = RemoteModule(
             ip=RPM_SAVE_SERVER['host'],
             user=RPM_SAVE_SERVER['username'],

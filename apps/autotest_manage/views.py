@@ -13,7 +13,7 @@ class HandleCasesByModule(View):
 
     def get(self, request):
         # 定义
-        dnsCount, dhcpCount, publicCount, gslbCount = 0
+        dnsCount, dhcpCount, publicCount, gslbCount = 0, 0, 0, 0
         dnsList = []
         dhcpList = []
         gslbList = []
@@ -28,22 +28,22 @@ class HandleCasesByModule(View):
         dnsData = dnsCases.values('id', 'case_en_name', 'case_ch_name')
         for case in dnsData:
             dnsList.append(case)
-            dnsCount += 1
+            dnsCount = len(dnsList)
 
         publicData = publicCases.values('id', 'case_en_name', 'case_ch_name')
         for case in publicData:
             publicList.append(case)
-            publicCount += 1
+            publicCount = len(publicList)
 
         dhcpData = dhcpCases.values('id', 'case_en_name', 'case_ch_name')
         for case in dhcpData:
             dhcpList.append(case)
-            publicCount += 1
+            dhcpCount = len(dhcpList)
 
         gslbData = gslbCases.values('id', 'case_en_name', 'case_ch_name')
         for case in gslbData:
             gslbList.append(case)
-            publicCount += 1
+            gslbCount = len(gslbList)
 
         response = {
             'code': 200,
