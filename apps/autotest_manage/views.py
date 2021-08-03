@@ -1,3 +1,5 @@
+import json
+
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.views import View
@@ -10,14 +12,59 @@ from .models import ApiCases
 class HandleCasesByModule(View):
 
     def get(self, request):
-        queryset = ApiCases.objects.all()
-        return json_response({
+        # 定义
+        dnsCount, dhcpCount, publicCount, gslbCount = 0
+        dnsList = []
+        dhcpList = []
+        gslbList = []
+        publicList = []
+        # 获取用例 objects
+        dnsCases = ApiCases.objects.all().filter(module='DNS')
+        publicCases = ApiCases.objects.all().filter(module='PUBLIC')
+        dhcpCases = ApiCases.objects.all().filter(module='DHCP')
+        gslbCases = ApiCases.objects.all().filter(module='GSLB')
+
+        # 处理数据
+        dnsData = dnsCases.values('id', 'case_en_name', 'case_ch_name')
+        for case in dnsData:
+            dnsList.append(case)
+            dnsCount += 1
+
+        publicData = publicCases.values('id', 'case_en_name', 'case_ch_name')
+        for case in publicData:
+            publicList.append(case)
+            publicCount += 1
+
+        dhcpData = dhcpCases.values('id', 'case_en_name', 'case_ch_name')
+        for case in dhcpData:
+            dhcpList.append(case)
+            publicCount += 1
+
+        gslbData = gslbCases.values('id', 'case_en_name', 'case_ch_name')
+        for case in gslbData:
+            gslbList.append(case)
+            publicCount += 1
+
+        response = {
             'code': 200,
             'msg': 'success',
             'data': {
-                'data': queryset
+                'dns': {
+                    'count': dnsCount,
+                    'items': dnsList
+                },
+                'public': {
+                    'count': publicCount,
+                    'items': publicList
+                },
+                'dhcp': {
+                    'count': dhcpCount,
+                    'items': dhcpList
+                },
+                'gslb': {
+                    'count': gslbCount,
+                    'items': gslbList
+                },
             }
-        })
-
-
-
+        }
+        return json_response(response)
