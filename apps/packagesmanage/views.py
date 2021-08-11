@@ -1,3 +1,4 @@
+import requests
 from django.views.generic import View
 from loguru import logger
 from libs.tool import json_response, conver_byte_to_utf8
@@ -5,11 +6,11 @@ import datetime
 import time
 import json
 import threading
-
 from conf.ENV_CONF import RPM_SERVER_CENTOS78, RPM_SERVER_CENTOS64, VSPHERE_SERVER, RPM_SAVE_SERVER
 from libs.operateVsPhere import OperateVSphere
 from libs.RemoteOperate import RemoteModule
-
+from jenkinsapi.utils.crumb_requester import CrumbRequester
+from jenkinsapi.jenkins import Jenkins
 
 ssh_78 = RemoteModule(
     ip=RPM_SERVER_CENTOS78['host'],
@@ -23,12 +24,11 @@ ssh_64 = RemoteModule(
     passwd=RPM_SERVER_CENTOS64['password']
 )
 
-
 rpm_save_server_ssh = RemoteModule(
-            ip=RPM_SAVE_SERVER['host'],
-            user=RPM_SAVE_SERVER['username'],
-            passwd=RPM_SAVE_SERVER['password']
-        )
+    ip=RPM_SAVE_SERVER['host'],
+    user=RPM_SAVE_SERVER['username'],
+    passwd=RPM_SAVE_SERVER['password']
+)
 
 vm_name_centos6 = VSPHERE_SERVER['vm_name_centos6']
 vm_name_centos7 = VSPHERE_SERVER['vm_name_centos7']
@@ -51,9 +51,10 @@ class HandleRpmMake(View):
             2.初始化vsphere平台上虚拟机的环境（恢复快照到最初始环境）
             3.在初始的化的环境中，先git pull代码，git chcekout -f branch切到对应的分支
             4.制作rpm包，替换制作rpm包脚本中的日期为当前时间
-            5.如果配置了邮件，则需要加上对应的发送邮件配置
-            6.执行制作rpm脚本， cd /root/zddi-build-7.8, 执行./install.sh --force  && gen_rpm.sh
-            7.rpm制作完成后，将生的的rpm通过scp拷贝到自动化平台服务器
+            5.在 10.1.107.32 对应保存 rpm 文件夹的目录下面新建一个对应日期的文件夹
+            6.如果配置了邮件，则需要加上对应的发送邮件配置
+            7.执行制作rpm脚本， cd /root/zddi-build-7.8, 执行./install.sh --force  && gen_rpm.sh
+            8.rpm制作完成后，将生的的rpm通过scp拷贝到自动化平台服务器
         """
         data = request.body
         data = data.decode('utf-8')
@@ -114,15 +115,15 @@ class HandleRpmMake(View):
             logger.info("获取虚拟机的电源状态：{0}".format(vm_power_status))
             if vm_power_status != 'poweredOn':
                 return json_response(error="虚拟机启动失败！")
-
+            # 日志和包名均只显示年月日，不显示具体的 timestamp
             current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            current_date = datetime.datetime.now().strftime("%Y%m%d%")
             log_name = "{0}zddi-build-{1}.el7.log".format(centos7_rpm_path, current_time)
             # logger.info("log_name:{0}".format(log_name))
 
             rpm_save_server_ssh.exec_command(
                 'echo "RPM包正在制作，请等待....." >> {0}/zddi-build-{1}.el7.log'.format(RPM_SAVE_SERVER['path'], current_time)
             )
-
             # 更新服务器时间
             ssh_78.exec_command("/usr/sbin/ntpdate ntp1.aliyun.com")
 
@@ -135,21 +136,21 @@ class HandleRpmMake(View):
             # 执行make pull更新dns
             ssh_78.exec_command("cd {0} && make pull >> {1}".format(centos7_rpm_path, log_name))
 
-            # 替换制作rpm脚本
-            relpace_ver_date = ssh_78.exec_command(
-                'grep -n "ver_date=\$(date +%Y%m%d)" {0}gen_rpm.sh'.format(centos7_rpm_path))
-            if relpace_ver_date:
-                ssh_78.exec_command(
-                    """sed -i 's/\$(date +%Y%m%d)/"{0}"/g' {1}gen_rpm.sh""".format(
-                        current_time, centos7_rpm_path))
-                logger.info("替换gen_rpm.sh脚本中生成rpm的时间戳")
-            else:
-                return json_response(error="制作rpm的脚本{0}gen_rpm.sh可能不存在，请检查")
+            # 执行rpm包安装脚本
+            ssh_78.exec_command('{0}gen_rpm.sh'.format(centos7_rpm_path))
+
+            # if relpace_ver_date:
+            #     ssh_78.exec_command(
+            #         """sed -i 's/\$(date +%Y%m%d)/"{0}"/g' {1}gen_rpm.sh""".format(
+            #             current_time, centos7_rpm_path))
+            #     logger.info("替换gen_rpm.sh脚本中生成rpm的时间戳")
+            # else:
+            #     return json_response(error="制作rpm的脚本{0}gen_rpm.sh可能不存在，请检查")
 
             # 删除rpm包的安装脚本
-            ssh_78.exec_command(
-                """ sed -i "/install_rpm\.sh/d" {0}gen_rpm.sh""".format(centos7_rpm_path)
-            )
+            # ssh_78.exec_command(
+            #     """ sed -i "/install_rpm\.sh/d" {0}gen_rpm.sh""".format(centos7_rpm_path)
+            # )
 
             # 在gen_rpm.sh的脚本的首行添加install.sh --force的行
             ssh_78.exec_command(
@@ -188,10 +189,10 @@ send_name=\`ls {0}| grep \$ver_date | grep -v log| grep -v grep\`
             ))
 
             command = "cd {0} && ./gen_rpm.sh >> {1} 2>&1 &".format(centos7_rpm_path, log_name)
-
+            rpm_save_server_ssh.exec_command()
             exec_make_rpm_comm = threading.Thread(target=start_exec_rpm, args=(ssh_78, command))
-            exec_make_rpm_comm.start()
-
+            # 创建一个当前时间戳的文件夹
+            exec_make_rpm_comm.start("mkdir -p {0}{1}".format(RPM_SAVE_SERVER['path'], current_time))
             logger.info("RPM服务器{0}开始制作RPM......".format(RPM_SERVER_CENTOS78['host']))
 
         elif data.get("type") == "centos64":
@@ -219,6 +220,7 @@ send_name=\`ls {0}| grep \$ver_date | grep -v log| grep -v grep\`
                 return json_response(error="虚拟机启动失败！")
 
             current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            current_date = datetime.datetime.now().strftime("%Y%m%d")
             log_name = "{0}zddi-build-{1}.el6.log".format(centos6_rpm_path, current_time)
 
             rpm_save_server_ssh.exec_command(
@@ -243,7 +245,8 @@ send_name=\`ls {0}| grep \$ver_date | grep -v log| grep -v grep\`
                 'grep -n "ver_date=\$(date +%Y%m%d)" {0}/repo/gen_rpm.sh'.format(centos6_rpm_path))
             if relpace_ver_date:
                 ssh_64.exec_command(
-                    """sed -i 's/\$(date +%Y%m%d)/"{0}"/g' {1}/repo/gen_rpm.sh""".format(current_time, centos6_rpm_path))
+                    """sed -i 's/\$(date +%Y%m%d)/"{0}"/g' {1}/repo/gen_rpm.sh""".format(current_date,
+                                                                                         centos6_rpm_path))
             else:
                 return json_response(error="制作rpm的脚本{0}/repo/gen_rpm.sh不存在，请检查".format(centos6_rpm_path))
 
@@ -521,3 +524,64 @@ class HandleTarLog(View):
         return json_response(respone)
 
 
+class HandlejenkinsJob(View):
+
+    def get(self, request):
+        '''
+        获取信息
+        :param request:
+        :return:
+        '''
+
+        return {
+            'data': None,
+            'code': 200
+        }
+
+    def post(self, request):
+        # 获取前端传递的参数
+        data = request.body
+        data = data.decode('utf-8')
+        data = json.loads(data) if data else {}
+        print(data)
+        # 初始化 Jenkins
+        jenkins_url = 'http://10.1.107.25:8080'
+        crumb = CrumbRequester(username='admin', password='admin', baseurl=jenkins_url)
+        server = Jenkins(baseurl=jenkins_url, username='admin', password='admin', useCrumb=True, requester=crumb)
+        print(server.keys())
+        # 调用 Jenkinsapi,进行 build
+        if data['type'] == 'centos78':
+            try:  # 进行异常判断和补货
+                current_date = datetime.datetime.now().strftime("%Y%m%d")
+                current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+                dir_name = 'zddi_rpm{0}'.format(current_time)
+                log_name = 'zddi-build-{0}.el7.log'.format(current_date)
+                branch_name = data['branch']
+                params = {
+                    'dir_name': dir_name,
+                    'log_name': log_name,
+                    'token': 'admin',
+                    "branch_name": branch_name,
+                }
+                server.build_job(jobname='zddi_build-78-rpm_build', params=params)
+                while True:
+                    job_status = server['zddi_build-78-rpm_build'].is_queued()
+                    if job_status:
+                        msg = "有 rpm 包正在打包中,请稍后...."
+                response = {
+                    "ms"
+                    "code": 200
+                }
+            except Exception as error:
+                response = {
+                    'error': error
+                }
+            # 执行完毕后，发送邮件- 需要判断 jenkins是否执行完毕
+        #     if data['email']:
+        #         insert_send_email = """
+        # send_name=\`ls {0}| grep \$ver_date | grep -v log| grep -v grep\`/usr/bin/python /root/sendEmail1.py {1} {2} \$send_name
+        #                                """.format(centos7_rpm_path, data['email'], RPM_SAVE_SERVER['host'])
+        #         ssh_78.exec_command(
+        #             'echo "{0}">> {1}gen_rpm.sh'.format(insert_send_email, centos7_rpm_path)
+        #         )
+        return json_response(response)

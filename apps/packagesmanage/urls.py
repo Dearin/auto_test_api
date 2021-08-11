@@ -6,7 +6,7 @@ from django.conf.urls import url
 from .views import *
 
 urlpatterns = [
-    url(r'^rpm_make/', HandleRpmMake.as_view()),
+    url(r'^rpm_make/', HandlejenkinsJob.as_view()),
     url(r'^rpm_log/', HandleRpmLog.as_view()),
     url(r'^tar_make/', HandleTarMake.as_view()),
     url(r'^tar_log/', HandleTarLog.as_view()),
