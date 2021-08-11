@@ -1,6 +1,8 @@
 import requests
 from django.views.generic import View
 from loguru import logger
+
+from apps.packagesmanage.models import JenkinsJob
 from libs.tool import json_response, conver_byte_to_utf8
 import datetime
 import time
@@ -539,6 +541,12 @@ class HandlejenkinsJob(View):
         }
 
     def post(self, request):
+        '''
+        todo:
+        1、初步判断构建版本的状态，存入数据库
+        2、
+
+        '''
         # 获取前端传递的参数
         data = request.body
         data = data.decode('utf-8')
@@ -551,7 +559,7 @@ class HandlejenkinsJob(View):
         print(server.keys())
         # 调用 Jenkinsapi,进行 build
         if data['type'] == 'centos78':
-            try:  # 进行异常判断和补货
+            try:  # 进行异常判断
                 current_date = datetime.datetime.now().strftime("%Y%m%d")
                 current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
                 dir_name = 'zddi_rpm{0}'.format(current_time)
@@ -563,11 +571,19 @@ class HandlejenkinsJob(View):
                     'token': 'admin',
                     "branch_name": branch_name,
                 }
+                # 获取上一次执行的number
+                last_complete_build_number = server['zddi_build-78-rpm_build'].get_last_completed_buildnumber()
+                print('== last_sucess_build_number : {}'.format(last_complete_build_number))
+                # 执行构建
                 server.build_job(jobname='zddi_build-78-rpm_build', params=params)
-                while True:
-                    job_status = server['zddi_build-78-rpm_build'].is_queued()
-                    if job_status:
-                        msg = "有 rpm 包正在打包中,请稍后...."
+                # 将本次构建信息存入数据库
+                job = JenkinsJob(job_name='zddi_build-78-rpm_build', build_number=11, dir_name=dir_name,
+                                 log_name=log_name)
+                job.save()
+                # 查询本buildNumber执行状态
+                    # 进行初步状态的设置
+
+
                 response = {
                     "ms"
                     "code": 200
@@ -576,12 +592,4 @@ class HandlejenkinsJob(View):
                 response = {
                     'error': error
                 }
-            # 执行完毕后，发送邮件- 需要判断 jenkins是否执行完毕
-        #     if data['email']:
-        #         insert_send_email = """
-        # send_name=\`ls {0}| grep \$ver_date | grep -v log| grep -v grep\`/usr/bin/python /root/sendEmail1.py {1} {2} \$send_name
-        #                                """.format(centos7_rpm_path, data['email'], RPM_SAVE_SERVER['host'])
-        #         ssh_78.exec_command(
-        #             'echo "{0}">> {1}gen_rpm.sh'.format(insert_send_email, centos7_rpm_path)
-        #         )
         return json_response(response)
