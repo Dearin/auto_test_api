@@ -10,6 +10,7 @@ class JenkinsJob(models.Model):
     rmp_name = models.CharField(max_length=200, blank=True, null=True)
     log_content = models.TextField(blank=True, null=True)
     rpm_command = models.TextField(blank=True, null=True)
+    email = models.CharField(max_length=50,blank=True,null=True)
 
     class Meta:
         managed = False
