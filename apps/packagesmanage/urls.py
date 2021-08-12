@@ -7,7 +7,7 @@ from .views import *
 
 urlpatterns = [
     url(r'^rpm_make/', HandlejenkinsJob.as_view()),
-    url(r'^rpm_log/', HandleRpmLog.as_view()),
+    url(r'^rpm_log/', HandleJobLogs.as_view()),
     url(r'^tar_make/', HandleTarMake.as_view()),
     url(r'^tar_log/', HandleTarLog.as_view()),
     # url(r'^handle_cases_statistics/', HandleCaseStatistics.as_view()),

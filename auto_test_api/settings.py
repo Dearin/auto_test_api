@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/2.0/ref/settings/
 
 import os
 import sys
+
 from conf.ENV_CONF import RPM_SAVE_SERVER
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -31,33 +32,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
-##
-# CORS_ALLOW_CREDENTIALS = True
-# CORS_ORIGIN_WHITELIST = ('localhost:3000')
-
-# CORS_ALLOW_METHODS = {
-#     'DELETE',
-#     'GET',
-#     'OPTIONS',
-#     'PATCH',
-#     'POST',
-#     'PUT',
-#     'VIEW'
-# }
-#
-# CORS_ALLOW_HEADERS = {
-#     'accept',
-#     'accept-encoding',
-#     'authorization',
-#     'dnt',
-#     'content-type',
-#     'origin',
-#     'user-agent',
-#     'x-csrftoken',
-#     'x-requested-with'
-# }
-# Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -71,9 +45,9 @@ INSTALLED_APPS = [
     'account',
     'remote_login',
     'testlinkManage',
-    'packagesmanage',
     'initialData',
-    'autotest_manage'
+    'autotest_manage',
+    'packagesmanage',
 ]
 
 MIDDLEWARE = [

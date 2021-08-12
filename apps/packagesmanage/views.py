@@ -1,8 +1,6 @@
-import requests
+from .models import JenkinsJob
 from django.views.generic import View
 from loguru import logger
-
-from apps.packagesmanage.models import JenkinsJob
 from libs.tool import json_response, conver_byte_to_utf8
 import datetime
 import time
@@ -530,15 +528,76 @@ class HandlejenkinsJob(View):
 
     def get(self, request):
         '''
-        获取信息
-        :param request:
-        :return:
+        1、通过 jobname判断是 centos64还是 78，用于展示不同的服务器 ip
         '''
+        jenkins_url = 'http://10.1.107.25:8080'
+        crumb = CrumbRequester(username='admin', password='admin', baseurl=jenkins_url)
+        server = Jenkins(baseurl=jenkins_url, username='admin', password='admin', useCrumb=True, requester=crumb)
 
-        return {
-            'data': None,
-            'code': 200
+        FinishedJobsData = JenkinsJob.objects.all().filter(status='finished').values('job_name', 'build_number',
+                                                                                     'status', 'rpm_command',
+                                                                                     'log_name',
+                                                                                     'email', 'rmp_name', 'dir_name',
+                                                                                     'log_content')
+
+        UnfinishJobsData = JenkinsJob.objects.all().filter(status__in=['queue', 'runing']).values('job_name',
+                                                                                                  'build_number',
+                                                                                                  'status',
+                                                                                                  'rpm_command',
+                                                                                                  'log_name',
+                                                                                                  'email', 'rmp_name',
+                                                                                                  'dir_name',
+                                                                                                  'log_content')
+
+        allDatas =  JenkinsJob.objects.all().values()
+        for item in allDatas:
+            if item['status']
+        # 未执行的任务状态判断
+        UnfinishItems = []
+        if UnfinishJobsData.exists():
+            for item in UnfinishJobsData:
+                # 对于没有完成的任务，查询时，更新一下状态：
+                last_complete_num = server[item['job_name']].get_last_completed_buildnumber()
+                # 如果上一次执行的 number大于或者等于自己的 num,代表自己已经执行过了
+                # 更新数据库中相关信息
+                if last_complete_num >= item['build_number']:
+                    job_item = JenkinsJob.objects.get(build_number=item['build_number'])
+                    job_item.status = 'finished'
+                    # 根据 jobName 和 buildNumber 获取改执行内容的日志
+                    job_name = item['job_name']
+                    console_log = server[job_name].get_build(item['build_number']).get_console()
+                    job_item.log_content = console_log
+                    # 保存更新
+                    job_item.save()
+                    item['status'] = 'finished'
+                UnfinishItems.append(item)
+
+        # 已经执行完毕的任务
+        FinishedItems = []
+        if FinishedJobsData.exists():
+            # 对已经完成的任务中，没有正确 rpm包和获取命令的 job 进行设置
+            for item in FinishedJobsData:
+                if item['job_name'] == 'zddi_build-78-rpm_build':
+                    if not item['rmp_name']:
+                        res = rpm_save_server_ssh.exec_command(
+                            'cd /opt/rpm/{0}/ && ls|grep rpm '.format(item['dir_name']))
+                        print("res: {}".format(res))
+                        rmp_name = str(res)
+                        rpm_command = 'scp root@10.1.107.30:/opt/rpm/{0}/{1} ./'.format(item['dir_name'], rmp_name)
+                        job_item = JenkinsJob.objects.get(build_number=item['build_number'])
+                        job_item.rmp_name = rmp_name
+                        job_item.rpm_command = rpm_command
+                        job_item.save()
+                FinishedItems.append(item)
+
+        all_items = UnfinishItems + FinishedItems
+        all_items.sort()
+        response = {
+            'msg': 'ok',
+            'data': all_items
         }
+
+        return json_response(response)
 
     def post(self, request):
         '''
@@ -564,25 +623,47 @@ class HandlejenkinsJob(View):
                 current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
                 dir_name = 'zddi_rpm{0}'.format(current_time)
                 log_name = 'zddi-build-{0}.el7.log'.format(current_date)
+                email = data['email']
                 branch_name = data['branch']
                 params = {
                     'dir_name': dir_name,
                     'log_name': log_name,
                     'token': 'admin',
                     "branch_name": branch_name,
+                    'receiver': email
                 }
                 # 获取上一次执行的number
                 last_complete_build_number = server['zddi_build-78-rpm_build'].get_last_completed_buildnumber()
-                print('== last_sucess_build_number : {}'.format(last_complete_build_number))
+                print('== last_complete_build_number : {}'.format(last_complete_build_number))
                 # 执行构建
                 server.build_job(jobname='zddi_build-78-rpm_build', params=params)
                 # 将本次构建信息存入数据库
-                job = JenkinsJob(job_name='zddi_build-78-rpm_build', build_number=11, dir_name=dir_name,
-                                 log_name=log_name)
+                # rpm_name = 'zddi_build-{0}-{1}.el7.x86_64.rpm'.format(branch_name, current_date)
+                # rpm_command = 'scp root@10.1.107.30:/opt/rpm/{0}/{1} ./'.format(dir_name, rpm_name)
+                # job = JenkinsJob(job_name='zddi_build-78-rpm_build', dir_name=dir_name,
+                #                 log_name=log_name, email=email, rmp_name=rpm_name)
+                job = JenkinsJob(job_name='zddi_build-78-rpm_build', dir_name=dir_name,
+                                 log_name=log_name, email=email)
                 job.save()
                 # 查询本buildNumber执行状态
-                    # 进行初步状态的设置
-
+                # 进行初步状态的设置
+                jobs = JenkinsJob.objects.all().filter(dir_name=dir_name).values('build_number')
+                for item in jobs:
+                    job_number = item['build_number']
+                if job_number == last_complete_build_number + 1:
+                    if server['zddi_build-78-rpm_build'].is_running():
+                        status = 'running'
+                        job = JenkinsJob.objects.get(build_number=job_number)
+                        job.status = status
+                        job.save()
+                elif job_number == last_complete_build_number:
+                    job = JenkinsJob.objects.get(build_number=job_number)
+                    job.status = 'finished'
+                    job.save()
+                else:
+                    job = JenkinsJob.objects.get(build_number=job_number)
+                    job.status = 'queue'
+                    job.save()
 
                 response = {
                     "ms"
@@ -592,4 +673,21 @@ class HandlejenkinsJob(View):
                 response = {
                     'error': error
                 }
+        return json_response(json.dumps(response))
+
+
+class HandleJobLogs(View):
+
+    def get(self, request):
+        ip_addr = request.GET.get('ip_addr')
+        build_number = request.GET.get('build_number')
+        if ip_addr == '10.1.107.30':
+            QuerySet = JenkinsJob.objects.all().filter(build_number=build_number).values()
+            items = []
+            for item in QuerySet:
+                items.append(item)
+        response = {
+            'data': items,
+            'code': 200
+        }
         return json_response(response)
