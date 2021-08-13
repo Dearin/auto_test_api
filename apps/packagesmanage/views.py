@@ -13,6 +13,7 @@ from libs.operateVsPhere import OperateVSphere
 from libs.RemoteOperate import RemoteModule
 from jenkinsapi.utils.crumb_requester import CrumbRequester
 from jenkinsapi.jenkins import Jenkins
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 ssh_78 = RemoteModule(
     ip=RPM_SERVER_CENTOS78['host'],
@@ -531,6 +532,7 @@ class HandlejenkinsJob(View):
     def get(self, request):
         '''
         1、通过 jobname判断是 centos64还是 78，用于展示不同的服务器 ip
+        2、提高性能，分页处理，最好是每一页单独执行相同的操作拉
         '''
         jenkins_url = 'http://10.1.107.25:8080'
         crumb = CrumbRequester(username='admin', password='admin', baseurl=jenkins_url)
@@ -569,7 +571,6 @@ class HandlejenkinsJob(View):
                     job_item.save()
                     item['status'] = 'finished'
 
-
         # 已经执行完毕的任务
         if FinishedJobsData.exists():
             # 对已经完成的任务中，没有正确 rpm包和获取命令的 job 进行设置
@@ -598,9 +599,23 @@ class HandlejenkinsJob(View):
         for item in allitems:
             if allitems.exists():
                 allDatas.append(item)
+        allDatas.sort(key=lambda k: (k.get('build_number', 0)), reverse=True)
+        # # 处理分页
+        # paginator = Paginator(allitems, 10)
+        # page = request.GET.get('page')
+        # try:
+        #     jobs = paginator.page(page)
+        # # 参数错误返回第一条数据
+        # except PageNotAnInteger:
+        #     jobs = paginator.page(1)
+        # # 超过最大页数返回最后一页
+        # except EmptyPage:
+        #     jobs = paginator.page(paginator.num_pages)
+
         response = {
             'msg': 'ok',
-            'data': allDatas
+            'data': allDatas,
+            'count': len(allDatas)
         }
         return json_response(response)
 
