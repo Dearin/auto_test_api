@@ -676,11 +676,10 @@ class HandlejenkinsJob(View):
                 last_complete_build_number = server['zddi_build-78-rpm_build'].get_last_completed_buildnumber()
                 print('== last_complete_build_number : {}'.format(last_complete_build_number))
                 if job_number == last_complete_build_number + 1:
-                    if server['zddi_build-78-rpm_build'].is_running():
-                        status = 'running'
-                        job = JenkinsJob.objects.get(build_number=job_number)
-                        job.status = status
-                        job.save()
+                    status = 'running'
+                    job = JenkinsJob.objects.get(build_number=job_number)
+                    job.status = status
+                    job.save()
                 elif job_number == last_complete_build_number:
                     job = JenkinsJob.objects.get(build_number=job_number)
                     job.status = 'finished'
@@ -689,7 +688,6 @@ class HandlejenkinsJob(View):
                     job = JenkinsJob.objects.get(build_number=job_number)
                     job.status = 'queue'
                     job.save()
-
                 response = {
                     "ms"
                     "code": 200
