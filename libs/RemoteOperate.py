@@ -51,7 +51,10 @@ class RemoteModule():
                            connect_kwargs={"password": self.passwd})
 
             result = c.run(cmd, pty=False, warn=True, hide=True)
-            logger.info(result.stdout)
+            if result.return_code == 0:
+                logger.info(f"Ran {result.command!r} on {result.connection.host} success, got stdout:\n{result.stdout}")
+            else:
+                logger.info(f"Ran {result.command!r} on {result.connection.host} , got error:\n{result.error}")
             c.close()
             return result.stdout
         except Exception as e:
