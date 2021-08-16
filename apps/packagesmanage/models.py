@@ -9,7 +9,7 @@ from django.db import models
 
 
 class JenkinsJob(models.Model):
-    build_number = models.AutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     job_name = models.CharField(max_length=50, blank=True, null=True)
     status = models.CharField(max_length=50, blank=True, null=True)
     dir_name = models.CharField(max_length=200, blank=True, null=True)
@@ -18,8 +18,13 @@ class JenkinsJob(models.Model):
     log_content = models.TextField(blank=True, null=True)
     rpm_command = models.TextField(blank=True, null=True)
     email = models.CharField(max_length=50, blank=True, null=True)
+    build_number = models.BigIntegerField(null=False)
 
     class Meta:
         managed = False
         db_table = 'jenkins_job'
+
+
+
+
 

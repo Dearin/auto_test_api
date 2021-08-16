@@ -49,11 +49,11 @@ class RemoteModule():
         try:
             c = Connection(self.ip, user=self.user, port=self.port, connect_timeout=120,
                            connect_kwargs={"password": self.passwd})
-            result = c.run(cmd, pty=False, warn=True, hide=True).stdout
-            logger.info(result)
-            print(result)
+
+            result = c.run(cmd, pty=False, warn=True, hide=True)
+            logger.info(result.stdout)
             c.close()
-            return result
+            return result.stdout
         except Exception as e:
             logger.error(f"exec cmd {cmd} failed：{e}")
 
