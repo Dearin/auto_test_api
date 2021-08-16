@@ -54,7 +54,7 @@ class RemoteModule():
             if result.return_code == 0:
                 logger.info(f"Ran {result.command!r} on {result.connection.host} success, got stdout:\n{result.stdout}")
             else:
-                logger.info(f"Ran {result.command!r} on {result.connection.host} , got error:\n{result.error}")
+                logger.error(f"Ran {result.command!r} on {result.connection.host} , got error:\n{result.error}")
             c.close()
             return result.stdout
         except Exception as e:
