@@ -201,11 +201,9 @@ class HandleTasksManage(View):
                                       dns_ver=dns_version,
                                       zdnf_conf_len=zdns_conf_len, email=receiver, master_ip1=master_ip1,
                                       master_ip2=master_ip2,
-                                      master2=master2, slave=slave_ip, create_time=time.time()
+                                      master2=master2, slave=slave_ip,
                                       )
                 obj.save()
-            else:
-                pass
         except Exception as e:
             return json_response(error=e)
 
@@ -214,3 +212,26 @@ class HandleTasksManage(View):
             'msg': "successfully added!"
         }
         return json_response(response)
+
+
+class HandleTaskExecute(View):
+    """
+    处理自动化任务的逻辑：
+    1、鉴于不同任务环境配置要要求不一样，所以目前只提供自定义环境测试
+        北京：10.1.107.24 api测试环境 python3
+        成都：10.2.2.102 api 测试环境 api_test/自动化平台测试环境 autotestapi
+    2、用户新建任务后，点击执行，开始执行该自动化任务：
+        (1)若任一节点正在测试中，点击运行的时候给出相关提示
+        (2)一个测试环境比如设置最多同时 3 个自动化测试进行执行，超过的地方在用户点击执行时进行提示
+        (3) Q: 如何判断当前 unittest 有多少用例需要执行，执行失败的有哪些？-- 有关失败重跑和进度展示
+        (4) Q: 如何判断当前任务是否结束？ -- 通过 pid 可以判断吗？
+
+    3、最后的发送邮件，如何发送邮件呢？ --  自定义一个邮件服务器吧
+    """
+
+    def post(self,request):
+
+        pass
+
+    def get(self,request):
+        pass

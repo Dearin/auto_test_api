@@ -23,6 +23,7 @@ class ApiCreatedtasks(models.Model):
     slave = models.CharField(max_length=50)
     master2 = models.CharField(max_length=50)
     create_time = models.DateTimeField(blank=True, null=True)
+    task_status = models.CharField(max_length=50)
 
     class Meta:
         managed = False

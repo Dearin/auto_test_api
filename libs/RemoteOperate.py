@@ -52,10 +52,10 @@ class RemoteModule():
 
             result = c.run(cmd, pty=False, warn=True, hide=True)
             if result.return_code == 0:
-                logger.info("result:{0}".format(result.stdout[:-1]))
+                logger.info("{0} result:{1}".format(cmd, result.stdout[:-1]))
                 return result.stdout[:-1]
             else:
-                logger.error("result:{0}".format(result.stdout[:-1]))
+                logger.info("{0} result:{1}".format(cmd, result.stdout[:-1]))
                 return result.stdout[:-1]
         except Exception as e:
             logger.error(f"exec cmd {result.command!r}  failed：{e}")
