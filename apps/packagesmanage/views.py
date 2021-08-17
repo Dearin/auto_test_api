@@ -672,11 +672,11 @@ class HandlejenkinsJob(View):
         current_date = datetime.datetime.now().strftime("%Y%m%d")
         current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         dir_name = 'zddi_rpm{0}'.format(current_time)
-        log_name = 'zddi-build-{0}.el7.log'.format(current_date)
         branch_name = data['branch']
 
         # 调用 Jenkinsapi,进行 build
         if data['type'] == 'centos78':
+            log_name = 'zddi-build-{0}.el7.log'.format(current_date)
             jobNum = setJobBuildNum(jobName=rpmJob78)
             try:  # 进行异常判断
                 params = {
@@ -726,6 +726,7 @@ class HandlejenkinsJob(View):
                 }
 
         elif data['type'] == 'centos64':
+            log_name = 'zddi-build-{0}.log'.format(current_date)
             jobNum = setJobBuildNum(jobName=rpmJob64)
             logger.info('censtos64:the lastest job buildnum:{}'.format(jobNum))
             try:  # 进行异常判断
