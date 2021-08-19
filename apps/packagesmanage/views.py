@@ -1,6 +1,6 @@
-import jenkinsapi.api
-from django.db.models import Max
+# import jenkinsapi.api
 
+from django.db.models import Max
 from .models import JenkinsJob
 from django.views.generic import View
 from loguru import logger
@@ -13,8 +13,11 @@ from conf.ENV_CONF import RPM_SERVER_CENTOS78, RPM_SERVER_CENTOS64, VSPHERE_SERV
 from libs.operateVsPhere import OperateVSphere
 from libs.RemoteOperate import RemoteModule
 from jenkinsapi.utils.crumb_requester import CrumbRequester
-from jenkinsapi.jenkins import Jenkins
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from jenkinsapi.jenkins import Jenkins
+import jenkinsapi
+import jenkins as pj
+import gitlab
 
 ssh_78 = RemoteModule(
     ip=RPM_SERVER_CENTOS78['host'],
@@ -53,19 +56,16 @@ rpmJob64 = 'zddi_build-64-rpm_build'
 jenkins_url = 'http://10.1.107.25:8080'
 crumb = CrumbRequester(username='admin', password='admin', baseurl=jenkins_url)
 server = Jenkins(baseurl=jenkins_url, username='admin', password='admin', useCrumb=True, requester=crumb)
+gitlab_url = 'https://git.zdns.cn/'
+private_auth = '8zqCryNvJ_-KKstXbyZG'
 
+# 初始化 gitlab
+gl = gitlab.Gitlab(url=gitlab_url, private_token=private_auth)
+zddiBuild78 = gl.projects.get(id=89)
+zddiBuild64 = gl.projects.get(id=49)
 
-def setJobBuildNum(jobName):
-    result = JenkinsJob.objects.all().filter(job_name=jobName).aggregate(Max('build_number'))
-    logger.info("result:{}".format(result))
-    maxBuildNum = result['build_number__max']
-    # 数据库中并没有存取，初始化状态的时候
-    if maxBuildNum is None:
-        last_build_num = server[jobName].get_last_completed_buildnumber()
-        jobNum = int(last_build_num + 1)
-    else:
-        jobNum = int(maxBuildNum + 1)
-    return jobNum
+branches78 = zddiBuild78.branches.list(all=True)
+branches64 = zddiBuild64.branches.list(all=True)
 
 
 class HandleRpmMake(View):
@@ -548,22 +548,60 @@ class HandleTarLog(View):
         return json_response(respone)
 
 
+# 处理添加到数据库中的任务的 build_number
+def setJobBuildNum(jobName):
+    pj_server = pj.Jenkins(url=jenkins_url, username='admin', password='admin')
+    # 获取当前 jenkins 队列的排队信息
+    queue = pj_server.get_queue_info()
+    # 存在排队队列
+    if len(queue):
+        # 获取正在执行的buildNum：
+        build_num = server[jobName].get_last_build().buildno
+        for item in queue:
+            if jobName in item:
+                build_num += 1
+        jobNum = int(build_num + 1)
+    # 不存在排队队列
+    else:
+        # 直接获取上次执行的buildNum，为本次打标+1
+        build_num = server[jobName].get_last_build().buildno
+        jobNum = int(build_num + 1)
+    return jobNum
+
+
+def isBranchExist(branchName, type):
+    allBranches78 = []
+    allBranches64 = []
+    for b in branches78:
+        allBranches78.append(str(b.name))
+
+    for b in branches64:
+        allBranches64.append(str(b.name))
+
+    if type == 'centos78':
+        if branchName in allBranches78:
+            return True
+        else:
+            return False
+    elif type == 'centos64':
+        if branchName in allBranches64:
+            return True
+        else:
+            return False
+
+
 class HandlejenkinsJob(View):
 
     def get(self, request):
-        '''
-        todo:
-        1、如何优化数据库存储，build_number自增的不稳定性？-- 已经处理，通过数据库中已有max build_number 打标记，使用 id 作为自增主键
-        保证 rpm64和 rpm78兼容
-        2、优化数据处理，提取方法，在分页中进行处理，减少处理时间 -- 暂未实现
-        '''
         pageSize = request.GET.get('pageSize')
-        print(pageSize)
         pageNums = request.GET.get('pageNums')
         jenkins_url = 'http://10.1.107.25:8080'
-        crumb = CrumbRequester(username='admin', password='admin', baseurl=jenkins_url)
-        server = Jenkins(baseurl=jenkins_url, username='admin', password='admin', useCrumb=True, requester=crumb)
 
+        crumb = CrumbRequester(username='admin', password='admin', baseurl=jenkins_url)
+        server = Jenkins(baseurl=jenkins_url, username='admin', password='admin', useCrumb=True,
+                         requester=crumb)
+        pj_server = pj.Jenkins(url=jenkins_url, username='admin', password='admin')
+        logger.info(pj_server.get_queue_info())
         FinishedJobsData = JenkinsJob.objects.all().filter(status='finished').values('job_name', 'build_number',
                                                                                      'status', 'rpm_command',
                                                                                      'log_name',
@@ -656,7 +694,8 @@ class HandlejenkinsJob(View):
         response = {
             'msg': 'ok',
             'data': jobs_items,
-            'count': len(allitems)
+            'count': len(allitems),
+            'code': 200
         }
         return json_response(response)
 
@@ -673,7 +712,13 @@ class HandlejenkinsJob(View):
         current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         dir_name = 'zddi_rpm{0}'.format(current_time)
         branch_name = data['branch']
-
+        print(isBranchExist(branchName=branch_name, type=data['type']))
+        if not isBranchExist(branchName=branch_name, type=data['type']):
+            response = {
+                'code': 10001,
+                'msg0': "该分支不存在，请填写正确分支！"
+            }
+            return json_response(response)
         # 调用 Jenkinsapi,进行 build
         if data['type'] == 'centos78':
             log_name = 'zddi-build-{0}.el7.log'.format(current_date)
@@ -687,7 +732,9 @@ class HandlejenkinsJob(View):
                     'receiver': email
                 }
                 # 执行构建
-                server.build_job(jobname=rpmJob78, params=params)
+                # server.build_job(jobname=rpmJob78, params=params)
+                pj_server = pj.Jenkins(url=jenkins_url, username='admin', password='admin')
+                num = pj_server.build_job(name=rpmJob78, parameters=params)
                 # 将本次构建信息存入数据库
                 job = JenkinsJob(job_name=rpmJob78, dir_name=dir_name,
                                  log_name=log_name, email=email, build_number=jobNum)
@@ -717,12 +764,13 @@ class HandlejenkinsJob(View):
                     job.status = 'queue'
                     job.save()
                 response = {
-                    "ms"
+                    "msg": 'ok',
                     "code": 200
                 }
             except Exception as error:
                 response = {
-                    'error': error
+                    'error': error,
+                    'code': 10000
                 }
 
         elif data['type'] == 'centos64':
@@ -752,7 +800,7 @@ class HandlejenkinsJob(View):
                     job_number = item['build_number']
                     logger.info('build_bum{0}'.format(job_number))
                 # 获取上一次执行的number
-                last_complete_build_number = server[rpmJob78].get_last_completed_buildnumber()
+                last_complete_build_number = server[rpmJob64].get_last_completed_buildnumber()
                 logger.info('== last_complete_build_number : {}'.format(last_complete_build_number))
                 if job_number == last_complete_build_number + 1:
                     status = 'running'
@@ -768,12 +816,13 @@ class HandlejenkinsJob(View):
                     job.status = 'queue'
                     job.save()
                 response = {
-                    "ms"
+                    "msg": 'ok',
                     "code": 200
                 }
             except Exception as error:
                 response = {
-                    'error': error
+                    'error': error,
+                    'code': 10000
                 }
         return json_response(json.dumps(response))
 

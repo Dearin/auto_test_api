@@ -5,11 +5,29 @@ import jsonpath
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.views import View
+from loguru import logger
+
 from libs.tool import json_response
 from .models import ApiCases, ApiCreatedtasks
 
 
 # Create your views here.
+def querySetIsExist(querySet):
+    items = []
+    if querySet.exists():
+        for item in querySet.values():
+            items.append(item)
+        response = {
+            'msg': "success",
+            'data': items
+        }
+    else:
+        response = {
+            'msg': "没有符合条件的数据",
+            'data': None
+        }
+    return response
+
 
 class HandleCasesByModule(View):
 
@@ -74,32 +92,17 @@ class HandleCasesByModule(View):
 
 class HandleTasksManage(View):
 
-    def querySetIsExist(self, querySet):
-        items = []
-        if querySet.exists():
-            for item in querySet.values():
-                items.append(item)
-            response = {
-                'msg': "success",
-                'data': items
-            }
-        else:
-            response = {
-                'msg': "没有符合条件的数据",
-                'data': None
-            }
-        return response
-
     def get(self, request):
         '''获取业务信息'''
         task_name = request.GET.get('task_name')
+        logger.info('task_name:{}'.format(task_name))
         if task_name is None:
             querySet = ApiCreatedtasks.objects.all()
-            response = self.querySetIsExist(querySet)
+            response = querySetIsExist(querySet)
         else:
             task_name = str(task_name)
             querySet = ApiCreatedtasks.objects.all().filter(task_name__icontains=f"{task_name}")
-            response = self.querySetIsExist(querySet)
+            response = querySetIsExist(querySet)
         return json_response(response)
 
     def handleCases(self, filter_param, module_name):
@@ -229,9 +232,24 @@ class HandleTaskExecute(View):
     3、最后的发送邮件，如何发送邮件呢？ --  自定义一个邮件服务器吧
     """
 
-    def post(self,request):
-
+    def post(self, request):
         pass
 
-    def get(self,request):
+    def get(self, request):
         pass
+
+
+class HandleTaskDetail(View):
+
+    def get(self, request):
+        if request.GET.get('task_id'):
+            id = request.GET.get('task_id')
+            querySet = ApiCreatedtasks.objects.all().filter(id=f"{id}")
+            response = querySetIsExist(querySet)
+        else:
+            response = {
+                'msg': '没有改数据存在'
+            }
+        return json_response(response)
+
+
